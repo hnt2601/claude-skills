@@ -29,20 +29,19 @@ claude mcp add docker -- npx -y @modelcontextprotocol/server-docker
 
 Specialized Claude agents for each phase of the AI product lifecycle.
 
-**Usage:** `use <agent-name> to <task>`
+**Usage:** `Use <agent-name> to <task>`
 
 ### Design & Architecture
 
 | Agent | Model | Description |
 |-------|-------|-------------|
-| architect-reviewer | opus | System design validation, architectural patterns, scalability analysis |
+| docs-architect | opus | Technical documentation generation |
 | tdd-orchestrator | opus | TDD workflow orchestration, test-first development |
 
 ### Planning
 
 | Agent | Model | Description |
 |-------|-------|-------------|
-| docs-architect | opus | Technical documentation generation |
 | kubernetes-architect | opus | K8s/GitOps architecture, EKS/AKS/GKE, service mesh, platform engineering |
 
 ### Development
@@ -59,6 +58,7 @@ Specialized Claude agents for each phase of the AI product lifecycle.
 | Agent | Model | Description |
 |-------|-------|-------------|
 | code-reviewer | opus | Code quality, security vulnerabilities, performance analysis |
+| architect-reviewer | opus | System design validation, architectural patterns, scalability analysis |
 | qa-expert | opus | Testing strategies, quality assurance |
 
 ### Operations
@@ -70,6 +70,28 @@ Specialized Claude agents for each phase of the AI product lifecycle.
 | refactoring-specialist | sonnet | Code improvement, technical debt reduction |
 | git-workflow-manager | sonnet | Git operations, branching strategies |
 | prompt-engineer | sonnet | Prompt optimization, LLM tuning |
+
+### Agent-Skill Integration
+
+Recommended skills for each agent to maximize effectiveness.
+
+| Agent | Recommended Skills |
+|-------|-------------------|
+| docs-architect | `generating-documentation`, `writing-plans`, `langchain-architecture` |
+| tdd-orchestrator | `python-testing-patterns`, `writing-plans`, `python-design-patterns` |
+| kubernetes-architect | `helm-chart-scaffolding`, `k8s-manifest-generator`, `k8s-security-policies`, `implementing-gitops`, `planning-disaster-recovery` |
+| bash-pro | `writing-dockerfiles`, `implementing-gitops` |
+| cpp-pro | `high-performance-inference`, `flash-attention`, `debug-cuda-crash` |
+| rust-engineer | `high-performance-inference`, `async-python-patterns`, `qdrant` |
+| mcp-developer | `langchain-architecture`, `prompt-engineering-patterns`, `python-error-handling` |
+| code-reviewer | `python-design-patterns`, `python-testing-patterns`, `python-error-handling`, `k8s-security-policies` |
+| architect-reviewer | `llm-serving-patterns`, `implementing-mlops`, `planning-disaster-recovery`, `slo-implementation` |
+| qa-expert | `python-testing-patterns`, `evaluating-llms-harness`, `slo-implementation` |
+| debugger | `debug-cuda-crash`, `python-error-handling`, `python-testing-patterns` |
+| devops-troubleshooter | `operating-kubernetes`, `prometheus-configuration`, `grafana-dashboards`, `debug-cuda-crash`, `implementing-gitops` |
+| refactoring-specialist | `python-design-patterns`, `python-testing-patterns`, `async-python-patterns` |
+| git-workflow-manager | `implementing-gitops`, `writing-plans` |
+| prompt-engineer | `prompt-engineering-patterns`, `langsmith`, `evaluating-llms-harness`, `langchain-architecture` |
 
 ---
 
@@ -172,26 +194,6 @@ Slash commands for common development tasks.
 
 ## Workflow Examples
 
-### Deploy an LLM API
-
-```
-1. use kubernetes-architect to design vLLM deployment on EKS
-2. /serving-llms-vllm configure model serving with tensor parallelism
-3. /helm-chart-scaffolding create Helm chart for the deployment
-4. use code-reviewer to review Kubernetes manifests
-5. /prometheus-configuration set up inference metrics
-```
-
-### Build a RAG System
-
-```
-1. /brainstorming explore RAG architecture options
-2. /rag-implementation design retrieval pipeline with Qdrant
-3. /langchain-agent create LangGraph agent with retrieval
-4. use debugger to troubleshoot retrieval quality
-5. /langsmith configure tracing and evaluation
-```
-
 ### Troubleshoot Production Issues
 
 ```
@@ -200,4 +202,54 @@ Slash commands for common development tasks.
 3. /debug-cuda-crash if GPU-related issues
 4. use code-reviewer to identify root cause in code
 5. /commit fix with conventional commit message
+```
+
+### End-to-End LLM Deployment with K8s & Helm
+
+A comprehensive workflow from ideation to production deployment of an LLM serving infrastructure.
+
+**Phase 1: Research & Ideation**
+```
+1. /notebooklm query research notebooks for LLM serving best practices
+2. /brainstorming explore deployment requirements and constraints
+```
+
+**Phase 2: Architecture & Design**
+```
+3. use docs-architect to create system design documentation
+4. use architect-reviewer to validate architecture decisions
+```
+
+**Phase 3: Planning**
+```
+5. /writing-plans create implementation plan with TDD approach
+6. /planning-disaster-recovery define RTO/RPO and backup strategies
+```
+
+**Phase 4: Implementation**
+```
+7. /vllm configure model serving with tensor parallelism
+8. /high-performance-inference optimize with AWQ quantization
+9. /k8s-manifest-generator create Deployment, Service, ConfigMap
+10. /helm-chart-scaffolding package as reusable Helm chart
+```
+
+**Phase 5: Review & Quality**
+```
+11. use code-reviewer to analyze security and performance
+12. use refactoring-specialist if code improvements needed
+```
+
+**Phase 6: Deployment & Debugging**
+```
+13. Deploy to staging cluster with helm install
+14. use devops-troubleshooter if pod issues occur
+15. use debugger for application-level errors
+16. /debug-cuda-crash if GPU-related issues
+```
+
+**Phase 7: Documentation**
+```
+17. /generating-documentation create deployment runbook and API docs
+18. /commit document changes with conventional commit
 ```

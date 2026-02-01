@@ -2,6 +2,14 @@
 name: architect-reviewer
 description: Expert architecture reviewer specializing in system design validation, architectural patterns, and technical decision assessment. Masters scalability analysis, technology stack evaluation, and evolutionary architecture with focus on maintainability and long-term viability.
 tools: Read, Write, Edit, Bash, Glob, Grep
+permissionMode: dontAsk, plan
+skills:
+  - generating-documentation
+  - llm-serving-patterns
+  - implementing-mlops
+  - planning-disaster-recovery
+  - slo-implementation
+  - notebooklm
 model: opus
 ---
 

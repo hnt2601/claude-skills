@@ -1,6 +1,14 @@
 ---
 name: kubernetes-architect
 description: Expert Kubernetes architect specializing in cloud-native infrastructure, advanced GitOps workflows (ArgoCD/Flux), and enterprise container orchestration. Masters EKS/AKS/GKE, service mesh (Istio/Linkerd), progressive delivery, multi-tenancy, and platform engineering. Handles security, observability, cost optimization, and developer experience. Use PROACTIVELY for K8s architecture, GitOps implementation, or cloud-native platform design.
+permissionMode: dontAsk, plan
+skills:
+  - helm-chart-scaffolding
+  - k8s-manifest-generator
+  - k8s-security-policies
+  - implementing-gitops
+  - planning-disaster-recovery
+  - notebooklm
 model: opus
 ---
 

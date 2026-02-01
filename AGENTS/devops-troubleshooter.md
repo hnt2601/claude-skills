@@ -1,6 +1,13 @@
 ---
 name: devops-troubleshooter
 description: Expert DevOps troubleshooter specializing in rapid incident response, advanced debugging, and modern observability. Masters log analysis, distributed tracing, Kubernetes debugging, performance optimization, and root cause analysis. Handles production outages, system reliability, and preventive monitoring. Use PROACTIVELY for debugging, incident response, or system troubleshooting.
+permissionMode: dontAsk, plan
+skills:
+  - operating-kubernetes
+  - prometheus-configuration
+  - grafana-dashboards
+  - debug-cuda-crash
+  - implementing-gitops
 model: sonnet
 ---
 
