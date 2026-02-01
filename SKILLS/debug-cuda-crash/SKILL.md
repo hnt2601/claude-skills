@@ -1,316 +1,319 @@
 ---
 name: debug-cuda-crash
-description: Tutorial for debugging CUDA crashes using API logging
+description: Debug CUDA crashes and illegal memory access errors in vLLM using core dumps, cuda-gdb, environment variables, and systematic troubleshooting
 ---
 
-# Tutorial: Debugging CUDA Crashes with API Logging
+# Tutorial: Debugging CUDA Crashes in vLLM
 
-This tutorial shows you how to debug CUDA crashes and errors in FlashInfer using the `@flashinfer_api` logging decorator.
+This tutorial shows you how to debug CUDA crashes and errors in vLLM using CUDA core dumps, cuda-gdb, and vLLM's debugging environment variables.
 
 ## Goal
 
-When your code crashes with CUDA errors (illegal memory access, out-of-bounds, NaN/Inf), use API logging to:
-- Capture input tensors BEFORE the crash occurs
-- Understand what data caused the problem
-- Track tensor shapes, dtypes, and values through your pipeline
-- Detect numerical issues (NaN, Inf, wrong shapes)
+When your vLLM inference crashes with CUDA errors (illegal memory access, out-of-bounds, NaN/Inf), use these techniques to:
+- Capture GPU state at the moment of crash for post-mortem analysis
+- Identify the exact kernel and source line causing the error
+- Debug issues hidden within CUDA graphs
+- Diagnose distributed inference and NCCL communication problems
 
-## Why Use API Logging?
+## Why CUDA Debugging is Hard in vLLM
 
-**Problem**: CUDA errors often crash the program, leaving no debugging information.
+**Problem**: CUDA errors are often asynchronously reported, producing unreliable stack traces. When using CUDA graphs (default in vLLM), the culprit kernel is obscured because the entire graph appears as a single operation.
 
-**Solution**: FlashInfer's `@flashinfer_api` decorator logs inputs BEFORE execution, so you can see what caused the crash even after the program terminates.
+**Solution**: CUDA core dumps capture the complete GPU state when an exception occurs, enabling precise identification of the problematic kernel even within CUDA graphs.
 
-## Step 1: Enable API Logging
+## Step 1: Enable vLLM Debug Logging
 
-### Basic Logging (Function Names Only)
-
-```bash
-export FLASHINFER_LOGLEVEL=1        # Log function names
-export FLASHINFER_LOGDEST=stdout    # Log to console
-
-python my_script.py
-```
-
-Output:
-```
-[2025-12-18 10:30:45] FlashInfer API Call: batch_decode_with_padded_kv_cache
-```
-
-### Detailed Logging (Inputs/Outputs with Metadata)
+### Basic Debug Logging
 
 ```bash
-export FLASHINFER_LOGLEVEL=3        # Log inputs/outputs with metadata
-export FLASHINFER_LOGDEST=debug.log # Save to file
-
-python my_script.py
+export VLLM_LOGGING_LEVEL=DEBUG
+python -m vllm.entrypoints.openai.api_server --model meta-llama/Llama-2-7b-hf
 ```
 
-Output in `debug.log`:
-```
-================================================================================
-[2025-12-18 10:30:45] FlashInfer API Logging - System Information
-================================================================================
-FlashInfer version: 0.6.0
-CUDA toolkit version: 12.1
-GPU 0: NVIDIA H100 PCIe
-  Compute capability: 9.0 (SM90)
-PyTorch version: 2.1.0
-================================================================================
-
-================================================================================
-[2025-12-18 10:30:46] FlashInfer API Call: batch_decode_with_padded_kv_cache
---------------------------------------------------------------------------------
-Positional input arguments:
-  arg[0]:
-    Tensor(
-      shape=(32, 8, 128)
-      dtype=torch.bfloat16
-      device=cuda:0
-      requires_grad=False
-      is_contiguous=True
-    )
-Keyword input arguments:
-  kv_cache=
-    Tensor(
-      shape=(1024, 2, 8, 128)
-      dtype=torch.bfloat16
-      device=cuda:0
-      requires_grad=False
-      is_contiguous=True
-    )
-```
-
-### Full Logging (With Tensor Statistics)
+### Function Tracing
 
 ```bash
-export FLASHINFER_LOGLEVEL=5        # Log with min/max/mean/nan/inf
-export FLASHINFER_LOGDEST=debug.log
-
-python my_script.py
+export VLLM_TRACE_FUNCTION=1
+python my_vllm_script.py
 ```
 
-Additional output:
-```
-  Tensor(
-    shape=(32, 8, 128)
-    dtype=torch.bfloat16
-    device=cuda:0
-    requires_grad=False
-    is_contiguous=True
-    min=-3.125000
-    max=4.250000
-    mean=0.015625
-    nan_count=0
-    inf_count=0
-  )
-```
+This records all function calls for inspection, helping identify where crashes occur.
 
-## Step 2: Reproduce the Crash
+### Disable CUDA Graphs for Isolation
 
-### Example: Shape Mismatch
-
-Your code crashes with:
-```
-RuntimeError: CUDA error: an illegal memory access was encountered
-```
-
-Enable logging and run again:
+CUDA graphs can obscure the source of errors. Disable them to isolate issues:
 
 ```bash
-export FLASHINFER_LOGLEVEL=3
-export FLASHINFER_LOGDEST=crash_log.txt
+# CLI
+python -m vllm.entrypoints.openai.api_server --model my-model --enforce-eager
 
-python my_script.py
+# Python API
+from vllm import LLM
+llm = LLM(model="my-model", enforce_eager=True)
 ```
 
-The log shows inputs before the crash:
-```
-[2025-12-18 10:32:15] FlashInfer API Call: batch_decode_with_padded_kv_cache
-Positional input arguments:
-  arg[0]:
-    Tensor(
-      shape=(32, 8, 128)      # Query tensor
-      ...
-    )
-Keyword input arguments:
-  kv_cache=
-    Tensor(
-      shape=(1024, 2, 8, 64)  # ❌ Wrong! Should be (..., 128) not (..., 64)
-      ...
-    )
+## Step 2: Enable CUDA Core Dumps
+
+When you encounter illegal memory access errors, enable CUDA core dumps to capture GPU state:
+
+```bash
+# Enable core dump on GPU exception
+export CUDA_ENABLE_COREDUMP_ON_EXCEPTION=1
+
+# Show progress and file location
+export CUDA_COREDUMP_SHOW_PROGRESS=1
+
+# Reduce file size by skipping memory contents (still captures stack traces)
+export CUDA_COREDUMP_GENERATION_FLAGS='skip_nonrelocated_elf_images,skip_global_memory,skip_shared_memory,skip_local_memory,skip_constbank_memory'
+
+# Specify where to save the coredump
+export CUDA_COREDUMP_FILE="/tmp/vllm_coredump_%h.%p.%t"
+
+# Run vLLM
+python -m vllm.entrypoints.openai.api_server --model my-model
 ```
 
-**Found the bug**: `head_dim` mismatch (64 vs 128)
+When a crash occurs, you'll see:
+```
+GPU coredump being generated...
+GPU coredump generated: /tmp/vllm_coredump_hostname.12345.1
+```
 
-## Step 3: Common CUDA Errors and How to Debug
+## Step 3: Analyze Core Dumps with cuda-gdb
+
+Open the coredump file:
+
+```bash
+cuda-gdb -c /tmp/vllm_coredump_hostname.12345.1
+```
+
+In cuda-gdb:
+
+```
+(cuda-gdb) target cudacore /tmp/vllm_coredump_hostname.12345.1
+Opening GPU coredump: /tmp/vllm_coredump_hostname.12345.1
+
+CUDA Exception: Warp Illegal Address
+The exception was triggered at PC 0x7f1234567890
+
+Thread 1 received signal CUDA_EXCEPTION_14, Warp Illegal Address.
+[Switching focus to CUDA kernel 0, grid 1, block (256,0,0), thread (128,0,0)]
+0x00007f1234567890 in flash_fwd_kernel<...><<<(2048,1,1),(256,1,1)>>> ()
+    at /path/to/csrc/flash_attn/flash_api.cu:123
+```
+
+Useful cuda-gdb commands:
+
+```
+(cuda-gdb) info cuda kernels          # List all active kernels
+(cuda-gdb) info cuda threads          # Show thread coordinates
+(cuda-gdb) bt                         # Backtrace with source lines
+(cuda-gdb) print blockIdx             # Print block coordinates
+(cuda-gdb) print threadIdx            # Print thread coordinates
+```
+
+## Step 4: Common CUDA Errors and How to Debug
 
 ### Error 1: Illegal Memory Access
 
 **Error Message**:
 ```
 RuntimeError: CUDA error: an illegal memory access was encountered
+CUDA kernel errors might be asynchronously reported...
 ```
 
-**Enable logging**:
-```bash
-export FLASHINFER_LOGLEVEL=3
-python my_script.py
-```
+**Debug Steps**:
 
-**What to check in logs**:
-- ✅ Tensor shapes match expected dimensions
-- ✅ All tensors are on CUDA (not CPU)
-- ✅ Tensor strides are reasonable
-- ✅ `is_contiguous=True` (if required)
+1. **Disable CUDA graphs** to isolate the issue:
+   ```bash
+   python -m vllm.entrypoints.openai.api_server --model my-model --enforce-eager
+   ```
 
-**Common causes**:
-- Wrong tensor dimensions
-- CPU tensor passed to GPU kernel
-- Incorrect stride patterns
+2. **Enable synchronous execution** for accurate stack traces:
+   ```bash
+   export CUDA_LAUNCH_BLOCKING=1
+   python my_script.py
+   ```
 
-### Error 2: NaN or Inf Values
+3. **Enable core dumps** for post-mortem analysis:
+   ```bash
+   export CUDA_ENABLE_COREDUMP_ON_EXCEPTION=1
+   export CUDA_COREDUMP_SHOW_PROGRESS=1
+   python my_script.py
+   ```
+
+4. **Use compute-sanitizer** for memory checking:
+   ```bash
+   compute-sanitizer --tool memcheck python my_script.py
+   ```
+
+### Error 2: Out of Memory
 
 **Error Message**:
 ```
-RuntimeError: Function ... returned nan or inf
+torch.cuda.OutOfMemoryError: CUDA out of memory
 ```
 
-**Enable statistics logging**:
-```bash
-export FLASHINFER_LOGLEVEL=5        # Level 5 shows nan_count, inf_count
-python my_script.py
-```
+**Debug Steps**:
 
-**What to check in logs**:
-```
-Tensor(
-  ...
-  min=-1234567.000000     # ❌ Suspiciously large
-  max=9876543.000000      # ❌ Suspiciously large
-  mean=nan                # ❌ NaN detected
-  nan_count=128           # ❌ 128 NaN values!
-  inf_count=0
-)
-```
+1. **Check GPU memory usage**:
+   ```bash
+   nvidia-smi
+   ```
 
-**Common causes**:
-- Division by zero in previous operation
-- Numerical overflow/underflow
-- Uninitialized memory
+2. **Reduce memory usage**:
+   ```bash
+   # Reduce GPU memory utilization
+   python -m vllm.entrypoints.openai.api_server \
+     --model my-model \
+     --gpu-memory-utilization 0.8
 
-### Error 3: Out of Memory
+   # Use quantization
+   python -m vllm.entrypoints.openai.api_server \
+     --model my-model \
+     --quantization awq
+   ```
+
+3. **Use tensor parallelism** for large models:
+   ```bash
+   python -m vllm.entrypoints.openai.api_server \
+     --model my-model \
+     --tensor-parallel-size 2
+   ```
+
+### Error 3: NCCL Communication Failures
 
 **Error Message**:
 ```
-RuntimeError: CUDA out of memory
+NCCL error: unhandled system error
+RuntimeError: NCCL communicator was aborted
 ```
 
-**Enable logging**:
-```bash
-export FLASHINFER_LOGLEVEL=3
-python my_script.py
-```
+**Debug Steps**:
 
-**What to check in logs**:
-- ✅ Tensor shapes (are they unexpectedly large?)
-- ✅ Batch size
-- ✅ Sequence length
+1. **Enable NCCL tracing**:
+   ```bash
+   export NCCL_DEBUG=TRACE
+   python my_distributed_script.py
+   ```
 
-Example:
-```
-Tensor(
-  shape=(1024, 8192, 128, 128)  # ❌ Way too large! Should be (1024, 128, 128)?
-  ...
-)
-```
+2. **Specify network interface**:
+   ```bash
+   export NCCL_SOCKET_IFNAME=eth0
+   export GLOO_SOCKET_IFNAME=eth0
+   python my_distributed_script.py
+   ```
 
-### Error 4: Wrong Dtype
+3. **Disable peer-to-peer** (for hardware issues):
+   ```bash
+   export NCCL_P2P_DISABLE=1
+   python my_distributed_script.py
+   ```
+
+4. **Test hardware communication**:
+   ```python
+   # Run PyTorch distributed test
+   import torch
+   import torch.distributed as dist
+
+   dist.init_process_group(backend='nccl')
+   tensor = torch.ones(1024, device='cuda')
+   dist.all_reduce(tensor)
+   print(f"Rank {dist.get_rank()}: {tensor.sum()}")
+   ```
+
+### Error 4: CUDAGraph Errors
 
 **Error Message**:
 ```
-RuntimeError: expected scalar type BFloat16 but found Float16
+RuntimeError: CUDA error: operation not permitted when stream is capturing
 ```
 
-**Enable logging**:
-```bash
-export FLASHINFER_LOGLEVEL=3
-python my_script.py
-```
+**Debug Steps**:
 
-**What to check in logs**:
-```
-Tensor(
-  dtype=torch.float16     # ❌ Should be torch.bfloat16
-  ...
-)
-```
+1. **Disable CUDA graphs**:
+   ```bash
+   python -m vllm.entrypoints.openai.api_server --model my-model --enforce-eager
+   ```
 
-## Step 4: Multi-Process Debugging
+2. If the error disappears, the issue is related to graph capture. Enable core dumps to identify the problematic kernel within the graph.
 
-When running with multiple GPUs/processes, use `%i` pattern:
+## Step 5: Multi-Process/Multi-Node Debugging
+
+### Set Up Host IP
 
 ```bash
-export FLASHINFER_LOGLEVEL=3
-export FLASHINFER_LOGDEST=debug_rank_%i.txt    # %i = process ID
-
-torchrun --nproc_per_node=4 my_script.py
+export VLLM_HOST_IP=192.168.1.100
+python -m vllm.entrypoints.openai.api_server --model my-model
 ```
 
-This creates separate logs:
-- `debug_rank_12345.txt` (process 12345)
-- `debug_rank_12346.txt` (process 12346)
-- `debug_rank_12347.txt` (process 12347)
-- `debug_rank_12348.txt` (process 12348)
-
-Now you can debug each rank independently.
-
-## Step 5: Advanced Debugging with compute-sanitizer
-
-For harder bugs, combine API logging with CUDA tools:
-
-### Use compute-sanitizer (Memory Checker)
+### Debug Each Rank Separately
 
 ```bash
-export FLASHINFER_LOGLEVEL=3
-export FLASHINFER_LOGDEST=debug.log
+# Enable per-rank core dumps
+export CUDA_ENABLE_COREDUMP_ON_EXCEPTION=1
+export CUDA_COREDUMP_FILE="/tmp/coredump_rank_%h.%p.%t"
 
+# Enable per-rank logging
+export VLLM_LOGGING_LEVEL=DEBUG
+
+torchrun --nproc_per_node=4 my_distributed_script.py
+```
+
+This creates separate coredumps for each rank:
+- `/tmp/coredump_rank_host.12345.1`
+- `/tmp/coredump_rank_host.12346.2`
+- etc.
+
+## Step 6: Advanced Debugging with compute-sanitizer
+
+### Memory Checker
+
+```bash
 compute-sanitizer --tool memcheck python my_script.py
 ```
 
-Output shows exact memory errors:
+Output:
 ```
 ========= COMPUTE-SANITIZER
 ========= Invalid __global__ write of size 4 bytes
-=========     at 0x1234 in ScaleKernel<float>
+=========     at 0x1234 in flash_fwd_kernel<float>
 =========     by thread (256,0,0) in block (10,0,0)
 =========     Address 0x7f1234567890 is out of bounds
 ```
 
-Check `debug.log` to see what inputs caused this kernel to fail.
-
-### Use cuda-gdb (Debugger)
+### Race Condition Checker
 
 ```bash
-export FLASHINFER_LOGLEVEL=3
-export FLASHINFER_LOGDEST=debug.log
-
-cuda-gdb --args python my_script.py
+compute-sanitizer --tool racecheck python my_script.py
 ```
 
-In gdb:
+### Synchronization Checker
+
+```bash
+compute-sanitizer --tool synccheck python my_script.py
 ```
-(cuda-gdb) run
-(cuda-gdb) where     # Show stack trace when it crashes
+
+## Step 7: Enable Debug Symbols for Source-Level Debugging
+
+Compile vLLM with debug symbols for precise line-level error attribution:
+
+```bash
+export NVCC_PREPEND_FLAGS='-lineinfo'
+pip install vllm --no-build-isolation
 ```
 
-Check `debug.log` for the inputs that led to the crash.
+Now cuda-gdb will show exact source lines:
 
-## Step 6: Kernel-Level Debugging with printf()
+```
+(cuda-gdb) bt
+#0  flash_fwd_kernel<...> at flash_attn/flash_api.cu:123
+#1  at_cuda_detail::launch_kernel at ATen/cuda/CUDAContext.cpp:456
+```
 
-You can use `printf()` inside CUDA kernels for debugging:
+## Step 8: Kernel-Level Debugging with printf()
 
-### Basic Usage
+For custom CUDA kernels, use `printf()` for debugging:
 
 ```cpp
 __global__ void MyKernel(const float* input, float* output, int n) {
@@ -330,245 +333,241 @@ __global__ void MyKernel(const float* input, float* output, int n) {
 **Important**: Flush printf buffer after kernel:
 ```python
 my_kernel(input, output)
-torch.cuda.synchronize()  # ← Flushes printf output
-```
-
-### ⚠️ Warp-Specialized Kernels: Choosing the Right Print Thread
-
-**Problem**: `threadIdx.x == 0` doesn't work for all warps (warp starting at thread 32 won't have thread 0).
-
-**Solution**: Choose one representative thread per specialization group.
-
-```cpp
-__global__ void WarpSpecializedKernel(...) {
-  // Define your group's representative thread
-  // e.g., first thread of each warp: threadIdx.x % 32 == 0
-  // e.g., first thread of each 4-warp group: threadIdx.x % 128 == 0
-
-  if (is_group_representative) {
-    printf("Group %d processing\n", group_id);
-  }
-}
-```
-
-**Common mistake** ❌:
-```cpp
-// ❌ Only warp 0 will print!
-if (threadIdx.x == 0) {
-  printf("Warp %d processing\n", threadIdx.x / 32);
-}
-```
-
-### Quick Reference
-
-| Kernel Type | Print Condition | Notes |
-|-------------|-----------------|-------|
-| Simple kernel | `threadIdx.x == 0` | One thread per block |
-| Warp-specialized | One thread per group | Depends on kernel design |
-
-### Other Kernel Debugging Tools
-
-```cpp
-// Assert for invariants
-assert(value >= 0.0f && "Value must be non-negative");
-
-// Compile-time checks
-static_assert(BLOCK_SIZE % 32 == 0, "BLOCK_SIZE must be multiple of warp size");
+torch.cuda.synchronize()  # Flushes printf output
 ```
 
 ## Environment Variables Reference
 
+### vLLM Debugging Variables
+
 | Variable | Values | Description |
 |----------|--------|-------------|
-| `FLASHINFER_LOGLEVEL` | `0` | No logging (default) |
-|  | `1` | Function names only |
-|  | `3` | Inputs/outputs with metadata |
-|  | `5` | + Tensor statistics (min/max/mean/nan/inf) |
-| `FLASHINFER_LOGDEST` | `stdout` | Log to console (default) |
-|  | `stderr` | Log to stderr |
-|  | `<path>` | Log to file |
-|  | `log_%i.txt` | Multi-process: %i = process ID |
+| `VLLM_LOGGING_LEVEL` | `DEBUG` | Enable detailed logging |
+| `VLLM_TRACE_FUNCTION` | `1` | Record all function calls |
+| `VLLM_HOST_IP` | IP address | Override auto-detected IP |
+
+### CUDA Debugging Variables
+
+| Variable | Values | Description |
+|----------|--------|-------------|
+| `CUDA_LAUNCH_BLOCKING` | `1` | Synchronous kernel execution |
+| `CUDA_ENABLE_COREDUMP_ON_EXCEPTION` | `1` | Enable GPU coredumps |
+| `CUDA_COREDUMP_SHOW_PROGRESS` | `1` | Show coredump generation progress |
+| `CUDA_COREDUMP_FILE` | path | Coredump file location (%h=host, %p=pid, %t=time) |
+| `CUDA_COREDUMP_GENERATION_FLAGS` | flags | Control what to include in coredump |
+| `CUDA_DEVICE_WAITS_ON_EXCEPTION` | `1` | Halt GPU for live debugger attachment |
+
+### NCCL Debugging Variables
+
+| Variable | Values | Description |
+|----------|--------|-------------|
+| `NCCL_DEBUG` | `TRACE` | Enable detailed NCCL logging |
+| `NCCL_SOCKET_IFNAME` | interface | Specify network interface |
+| `NCCL_P2P_DISABLE` | `1` | Disable peer-to-peer communication |
+| `NCCL_CUMEM_ENABLE` | `0` | Disable cuMem allocator (vLLM default) |
 
 ## Best Practices
 
-### 1. Always Start with Level 3
+### 1. Start with CUDA_LAUNCH_BLOCKING
 
 ```bash
-export FLASHINFER_LOGLEVEL=3
+export CUDA_LAUNCH_BLOCKING=1
 ```
 
-Level 3 provides tensor metadata (shape, dtype, device) without overwhelming output.
+This makes CUDA errors synchronous, providing more accurate stack traces.
 
-### 2. Use Level 5 for Numerical Issues
+### 2. Disable CUDA Graphs for Debugging
 
 ```bash
-export FLASHINFER_LOGLEVEL=5
+python -m vllm.entrypoints.openai.api_server --model my-model --enforce-eager
 ```
 
-Only use level 5 when debugging NaN/Inf problems (adds statistics).
+CUDA graphs obscure the source of errors. Disable them first.
 
-### 3. Log to File for Crashes
+### 3. Enable Core Dumps for Hard Crashes
 
 ```bash
-export FLASHINFER_LOGDEST=crash_log.txt
+export CUDA_ENABLE_COREDUMP_ON_EXCEPTION=1
+export CUDA_COREDUMP_SHOW_PROGRESS=1
 ```
 
-Console output may be lost when program crashes. File logs persist.
+Core dumps provide complete GPU state for post-mortem analysis.
 
-### 4. Compare Before/After
-
-Enable logging and compare:
-- Last successful API call (inputs logged, outputs logged) ✅
-- First failed API call (inputs logged, no outputs) ❌ ← This is where it crashed!
-
-### 5. Disable Logging in Production
+### 4. Use Memory-Reduced Coredumps
 
 ```bash
-unset FLASHINFER_LOGLEVEL   # or export FLASHINFER_LOGLEVEL=0
+export CUDA_COREDUMP_GENERATION_FLAGS='skip_nonrelocated_elf_images,skip_global_memory,skip_shared_memory,skip_local_memory,skip_constbank_memory'
 ```
 
-Logging has zero overhead when disabled (decorator returns original function).
+This keeps coredumps small while preserving stack traces.
+
+### 5. Avoid Production Use
+
+Debug settings have significant performance overhead. Remove all debug environment variables in production.
 
 ## Troubleshooting
 
-### No Logs Appearing
+### No Coredump Generated
 
-**Problem**: Set `FLASHINFER_LOGLEVEL=3` but no logs appear
+**Problem**: `CUDA_ENABLE_COREDUMP_ON_EXCEPTION=1` set but no coredump appears
 
 **Solutions**:
-1. **Check if API has the decorator**: Not all FlashInfer APIs have `@flashinfer_api` yet (work in progress)
+1. Check write permissions on coredump directory
+2. Verify sufficient disk space
+3. Some exception types don't trigger coredumps (use compute-sanitizer instead)
 
-2. **Verify environment variable**:
-   ```bash
-   echo $FLASHINFER_LOGLEVEL    # Should print "3"
-   ```
+### Coredump Too Large
 
-3. **Check log destination**:
-   ```bash
-   echo $FLASHINFER_LOGDEST     # Should print path or "stdout"
-   ```
+**Problem**: Coredump file is multiple gigabytes
 
-### Too Much Output
-
-**Problem**: Level 5 produces too much output
-
-**Solution**: Use level 3 instead:
+**Solution**: Use generation flags to skip memory contents:
 ```bash
-export FLASHINFER_LOGLEVEL=3   # Skip tensor statistics
+export CUDA_COREDUMP_GENERATION_FLAGS='skip_global_memory,skip_shared_memory,skip_local_memory'
 ```
 
-### Statistics Skipped in CUDA Graph
+### cuda-gdb Missing Source Lines
 
-**Warning**: `[statistics skipped: CUDA graph capture in progress]`
+**Problem**: Stack trace shows addresses instead of source lines
 
-**What it means**: Level 5 statistics are automatically skipped during CUDA graph capture (to avoid synchronization)
+**Solution**: Recompile with debug symbols:
+```bash
+export NVCC_PREPEND_FLAGS='-lineinfo'
+pip install vllm --no-build-isolation
+```
 
-**This is normal**: The framework protects you from graph capture issues.
+### Model Download Hangs
+
+**Problem**: vLLM hangs when downloading model
+
+**Solution**: Pre-download the model:
+```bash
+huggingface-cli download meta-llama/Llama-2-7b-hf --local-dir ./models/llama-2-7b
+python -m vllm.entrypoints.openai.api_server --model ./models/llama-2-7b
+```
 
 ## Quick Examples
 
-### Debug Shape Mismatch
+### Debug Illegal Memory Access
+
 ```bash
-export FLASHINFER_LOGLEVEL=3
-export FLASHINFER_LOGDEST=stdout
-python my_script.py
-# Check tensor shapes in output
+# Step 1: Enable synchronous execution
+export CUDA_LAUNCH_BLOCKING=1
+
+# Step 2: Disable CUDA graphs
+python -m vllm.entrypoints.openai.api_server --model my-model --enforce-eager
+
+# If crash persists, enable core dumps:
+export CUDA_ENABLE_COREDUMP_ON_EXCEPTION=1
+export CUDA_COREDUMP_SHOW_PROGRESS=1
+python -m vllm.entrypoints.openai.api_server --model my-model --enforce-eager
+
+# Analyze coredump:
+cuda-gdb -c /tmp/coredump_*
 ```
 
-### Debug NaN/Inf
+### Debug NCCL Issues
+
 ```bash
-export FLASHINFER_LOGLEVEL=5         # Show statistics
-export FLASHINFER_LOGDEST=debug.log
-python my_script.py
-# Check nan_count and inf_count in debug.log
+export NCCL_DEBUG=TRACE
+export NCCL_SOCKET_IFNAME=eth0
+export VLLM_LOGGING_LEVEL=DEBUG
+python -m vllm.entrypoints.openai.api_server --model my-model --tensor-parallel-size 4
 ```
 
-### Debug Multi-GPU Training
-```bash
-export FLASHINFER_LOGLEVEL=3
-export FLASHINFER_LOGDEST=rank_%i.log   # Separate log per rank
-torchrun --nproc_per_node=8 train.py
-# Check rank_*.log files
-```
+### Debug with compute-sanitizer
 
-### Combine with Memory Checker
 ```bash
-export FLASHINFER_LOGLEVEL=3
-export FLASHINFER_LOGDEST=inputs.log
-compute-sanitizer --tool memcheck python my_script.py
-# inputs.log shows what data caused the memory error
+compute-sanitizer --tool memcheck python -c "
+from vllm import LLM, SamplingParams
+llm = LLM(model='gpt2', enforce_eager=True)
+output = llm.generate(['Hello'], SamplingParams(max_tokens=10))
+print(output)
+"
 ```
 
 ## Example: Full Debug Session
 
-### Your code crashes:
-```python
-import torch
-from flashinfer import batch_decode_with_padded_kv_cache
+### Your vLLM server crashes:
 
-q = torch.randn(32, 8, 128, dtype=torch.bfloat16, device="cuda")
-kv = torch.randn(1024, 2, 8, 64, dtype=torch.bfloat16, device="cuda")  # Wrong dim!
-
-output = batch_decode_with_padded_kv_cache(q, kv)  # ❌ Crashes
+```
+RuntimeError: CUDA error: an illegal memory access was encountered
+CUDA kernel errors might be asynchronously reported at some other API call
 ```
 
-### Enable logging:
+### Step 1: Enable synchronous execution
+
 ```bash
-export FLASHINFER_LOGLEVEL=3
-export FLASHINFER_LOGDEST=debug.log
-python test.py
+export CUDA_LAUNCH_BLOCKING=1
+python -m vllm.entrypoints.openai.api_server --model my-model
 ```
 
-### Check debug.log:
-```
-[2025-12-18 10:45:23] FlashInfer API Call: batch_decode_with_padded_kv_cache
-Positional input arguments:
-  arg[0]:
-    Tensor(
-      shape=(32, 8, 128)
-      dtype=torch.bfloat16
-      ...
-    )
-  arg[1]:
-    Tensor(
-      shape=(1024, 2, 8, 64)    # ❌ Found it! Last dim should be 128
-      dtype=torch.bfloat16
-      ...
-    )
-```
+### Step 2: Disable CUDA graphs
 
-### Fix the bug:
-```python
-kv = torch.randn(1024, 2, 8, 128, dtype=torch.bfloat16, device="cuda")  # ✅ Fixed
-```
-
-### Success!
 ```bash
-python test.py
-# No crash, outputs logged successfully
+python -m vllm.entrypoints.openai.api_server --model my-model --enforce-eager
 ```
+
+### Step 3: Enable core dumps
+
+```bash
+export CUDA_ENABLE_COREDUMP_ON_EXCEPTION=1
+export CUDA_COREDUMP_SHOW_PROGRESS=1
+export CUDA_COREDUMP_FILE="/tmp/vllm_crash_%p"
+python -m vllm.entrypoints.openai.api_server --model my-model --enforce-eager
+```
+
+### Step 4: Analyze the coredump
+
+```bash
+cuda-gdb -c /tmp/vllm_crash_12345
+(cuda-gdb) target cudacore /tmp/vllm_crash_12345
+(cuda-gdb) info cuda kernels
+(cuda-gdb) bt
+```
+
+### Step 5: Found the issue
+
+```
+#0  flash_fwd_kernel<...> at flash_attn/flash_api.cu:456
+    with invalid tensor shape: expected (batch, heads, seq, dim) but got (batch, seq, heads, dim)
+```
+
+### Step 6: Fix and verify
+
+Fix the tensor shape issue in your code and verify the fix runs without errors.
 
 ## Summary
 
-1. **Enable logging** before the crash:
+1. **Start with basic debugging**:
    ```bash
-   export FLASHINFER_LOGLEVEL=3
-   export FLASHINFER_LOGDEST=debug.log
+   export CUDA_LAUNCH_BLOCKING=1
+   export VLLM_LOGGING_LEVEL=DEBUG
    ```
 
-2. **Run your code** - inputs are logged BEFORE crash
-
-3. **Check the log** - last API call shows what caused the crash
-
-4. **Fix the issue** based on logged input metadata
-
-5. **Disable logging** when done:
+2. **Disable CUDA graphs** to isolate issues:
    ```bash
-   export FLASHINFER_LOGLEVEL=0
+   --enforce-eager
+   ```
+
+3. **Enable core dumps** for hard crashes:
+   ```bash
+   export CUDA_ENABLE_COREDUMP_ON_EXCEPTION=1
+   ```
+
+4. **Analyze with cuda-gdb**:
+   ```bash
+   cuda-gdb -c /path/to/coredump
+   ```
+
+5. **Clean up** in production:
+   ```bash
+   unset CUDA_LAUNCH_BLOCKING
+   unset CUDA_ENABLE_COREDUMP_ON_EXCEPTION
    ```
 
 ## Related Documentation
 
-- See CLAUDE.md "API Logging with @flashinfer_api" for technical details
-- See `flashinfer/api_logging.py` for implementation
-- See CUDA documentation for compute-sanitizer and cuda-gdb
+- [vLLM Debugging Guide](https://docs.vllm.ai/en/latest/getting_started/debugging.html)
+- [CUDA Core Dumps Blog Post](https://blog.vllm.ai/2025/08/11/cuda-debugging.html)
+- [NVIDIA cuda-gdb Documentation](https://docs.nvidia.com/cuda/cuda-gdb/)
+- [NVIDIA Compute Sanitizer Documentation](https://docs.nvidia.com/compute-sanitizer/)

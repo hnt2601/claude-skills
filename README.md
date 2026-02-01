@@ -36,40 +36,40 @@ Specialized Claude agents for each phase of the AI product lifecycle.
 | Agent | Model | Description |
 |-------|-------|-------------|
 | architect-reviewer | opus | System design validation, architectural patterns, scalability analysis |
-| tdd-orchestrator | - | TDD workflow orchestration, test-first development |
+| tdd-orchestrator | opus | TDD workflow orchestration, test-first development |
 
 ### Planning
 
 | Agent | Model | Description |
 |-------|-------|-------------|
-| docs-architect | - | Technical documentation generation |
+| docs-architect | opus | Technical documentation generation |
 | kubernetes-architect | opus | K8s/GitOps architecture, EKS/AKS/GKE, service mesh, platform engineering |
 
 ### Development
 
 | Agent | Model | Description |
 |-------|-------|-------------|
-| bash-pro | - | Shell scripting, automation |
-| cpp-pro | - | C++ development, performance optimization |
-| rust-engineer | - | Rust development, memory safety |
-| mcp-developer | - | MCP server development |
+| bash-pro | sonnet | Shell scripting, automation |
+| cpp-pro | sonnet | C++ development, performance optimization |
+| rust-engineer | sonnet | Rust development, memory safety |
+| mcp-developer | sonnet | MCP server development |
 
 ### Review & Quality
 
 | Agent | Model | Description |
 |-------|-------|-------------|
 | code-reviewer | opus | Code quality, security vulnerabilities, performance analysis |
-| qa-expert | - | Testing strategies, quality assurance |
+| qa-expert | opus | Testing strategies, quality assurance |
 
 ### Operations
 
 | Agent | Model | Description |
 |-------|-------|-------------|
 | debugger | sonnet | Root cause analysis, systematic debugging |
-| devops-troubleshooter | - | Infrastructure issue diagnosis |
-| refactoring-specialist | - | Code improvement, technical debt reduction |
-| git-workflow-manager | - | Git operations, branching strategies |
-| prompt-engineer | - | Prompt optimization, LLM tuning |
+| devops-troubleshooter | sonnet | Infrastructure issue diagnosis |
+| refactoring-specialist | sonnet | Code improvement, technical debt reduction |
+| git-workflow-manager | sonnet | Git operations, branching strategies |
+| prompt-engineer | sonnet | Prompt optimization, LLM tuning |
 
 ---
 
