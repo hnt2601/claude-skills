@@ -12,7 +12,7 @@ This is a **Claude Code skills library** - a collection of reusable agents, comm
 ├── AGENTS/      # Reusable agent definitions with model and description frontmatter
 ├── COMMANDS/    # Slash command templates with $ARGUMENTS placeholder
 ├── RULES/       # Behavioral guidelines (git-workflow, performance optimization)
-├── SKILLS/      # Domain-specific knowledge bases (31 skills)
+├── SKILLS/      # Domain-specific knowledge bases (30 skills)
 ```
 
 ## File Formats
@@ -32,11 +32,14 @@ Body contains: purpose, capabilities, behavioral traits, knowledge base, and res
 Slash command templates with frontmatter:
 ```yaml
 ---
+allowed-tools: Bash(git add:*), Bash(git commit:*)  # Optional: restrict tool access
 description: "Command description"
-argument-hint: "<required-arg> [optional-arg]"
+argument-hint: "<required-arg> [optional-arg]"  # Optional
 ---
 ```
-Use `$ARGUMENTS` placeholder in the body for user-provided arguments.
+Commands may include:
+- `$ARGUMENTS` placeholder for user-provided arguments
+- `!`backtick commands for dynamic context injection (e.g., `!`git status`)
 
 ### SKILLS (`SKILLS/<skill-name>/`)
 Each skill is a self-contained knowledge base:
@@ -64,14 +67,33 @@ description: Detailed description of when to use this skill
 
 ## Current Skills Categories
 
-- **ML/AI Operations**: implementing-mlops, llm-evaluation, llm-serving-patterns, embedding-strategies
-- **Inference Optimization**: high-performance-inference, vllm, sglang, tensorrt-llm, awq, flash-attention
-- **RAG/Search**: rag-implementation, hybrid-search-implementation, similarity-search-patterns
+- **ML/AI Operations**: implementing-mlops, llm-evaluation, llm-serving-patterns, embedding-strategies, evaluating-llms-harness
+- **Inference Optimization**: high-performance-inference, vllm, serving-llms-vllm, sglang, tensorrt-llm, awq, flash-attention
+- **RAG/Search**: rag-implementation, hybrid-search-implementation, similarity-search-patterns, qdrant
 - **Kubernetes**: helm-chart-scaffolding, k8s-manifest-generator, k8s-security-policies
 - **Python Patterns**: async-python-patterns, python-design-patterns, python-error-handling, python-testing-patterns
-- **LLM Development**: langsmith, prompt-engineering-patterns, debug-cuda-crash
+- **LLM Development**: langsmith, langchain-architecture, prompt-engineering-patterns, debug-cuda-crash
+- **Workflow/Planning**: writing-plans, brainstorming
+- **Integrations**: notebooklm (browser automation for Google NotebookLM queries)
+
+## Available Agents
+
+Agents in `AGENTS/` are specialized for different tasks:
+- **code-reviewer**: Code quality, security, performance analysis (opus)
+- **docs-architect**: Documentation generation
+- **kubernetes-architect**: K8s infrastructure design
+- **architect-reviewer**: Architecture review
+- **debugger**: Debugging assistance
+- **git-workflow-manager**: Git operations and workflows
+- **prompt-engineer**: Prompt optimization
+- **qa-expert**: Testing and quality assurance
+- **refactoring-specialist**: Code refactoring
+- **mcp-developer**: MCP server development
+- **cpp-pro**, **rust-engineer**: Language-specific expertise
 
 ## Workflow Guidelines (from RULES/)
+
+RULES/ contains behavioral guidelines that may include CLAUDE.md files for auto-context loading.
 
 ### Git Workflow
 - Commit format: `<type>: <description>` (types: feat, fix, refactor, docs, test, chore, perf, ci)
@@ -83,3 +105,8 @@ description: Detailed description of when to use this skill
 - Use Sonnet for main development work
 - Use Opus for complex architectural decisions
 - Avoid last 20% of context window for large refactoring tasks
+
+## Skills with Executable Scripts
+
+Some skills contain runnable automation scripts:
+- **notebooklm**: Python scripts for Google NotebookLM browser automation (`scripts/run.py` wrapper pattern)
