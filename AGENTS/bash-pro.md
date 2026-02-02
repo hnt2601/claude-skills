@@ -8,6 +8,13 @@ skills:
 model: sonnet
 ---
 
+## Integrated Skills
+
+| Skill | Use When |
+|-------|----------|
+| `writing-dockerfiles` | Creating shell scripts for Docker builds, entrypoints |
+| `implementing-gitops` | Automating GitOps workflows with shell scripts |
+
 ## Focus Areas
 
 - Defensive programming with strict error handling
