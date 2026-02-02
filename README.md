@@ -80,6 +80,7 @@ Recommended skills for each agent to maximize effectiveness.
 | docs-architect | `generating-documentation`, `writing-plans`, `langchain-architecture` |
 | tdd-orchestrator | `python-testing-patterns`, `writing-plans`, `python-design-patterns` |
 | kubernetes-architect | `helm-chart-scaffolding`, `k8s-manifest-generator`, `k8s-security-policies`, `implementing-gitops`, `planning-disaster-recovery` |
+| aiops-architect | `helm-chart-scaffolding`, `k8s-manifest-generator`, `helm-chart-vllm`, `aiperf-benchmark` |
 | bash-pro | `writing-dockerfiles`, `implementing-gitops` |
 | cpp-pro | `high-performance-inference`, `flash-attention`, `debug-cuda-crash` |
 | rust-engineer | `high-performance-inference`, `async-python-patterns`, `qdrant` |
@@ -211,35 +212,112 @@ Slash commands for common development tasks.
 A comprehensive workflow from ideation to production deployment of an LLM serving infrastructure.
 
 **Phase 1: Research & Ideation**
+1. /notebooklm query research notebooks for a topic
+
+Example:
+
 ```
-1. /notebooklm query research notebooks for LLM serving best practices
+/notebooklm query research notebooks vLLM with LMCache from my notebook https://notebooklm.google.com/notebook/9bd1386c-af79-4407-a10e-27f9c0951e9c?pli=1 and save to my global memory ~/.claude/plans/lmcache-memory.md
+
+Please analyze and synthesize information about:
+
+1. vLLM + LMCache Integration
+   - Architecture and how LMCache works with vLLM
+   - Key configuration parameters for optimal performance
+   - Setup and deployment considerations
+
+2. Memory Management Best Practices
+   - GPU memory optimization techniques
+   - KV cache management strategies
+   - Memory pooling and allocation patterns
+   - Trade-offs between memory usage and throughput
+
+3. Serving Optimization
+   - Batch size tuning recommendations
+   - Request queuing and scheduling strategies
+   - Latency vs throughput optimization
+   - Multi-GPU and distributed serving considerations
+
+4. LMCache-Specific Features
+   - Cache hit rate optimization
+   - Cache eviction policies
+   - Prefix caching benefits and use cases
+   - Performance benchmarks and metrics
+
+5. Production Deployment
+   - Common pitfalls and how to avoid them
+   - Monitoring and observability recommendations
+   - Resource sizing guidelines
+   - Cost optimization strategies
+
+Please provide specific recommendations, configuration examples, and any relevant performance data or case studies found in the research notebooks.
+```
 2. /brainstorming explore deployment requirements and constraints
-```
+
+Example:
 
 **Phase 2: Architecture & Design**
-```
 3. use docs-architect to create system design documentation
 4. use architect-reviewer to validate architecture decisions
+
+Example:
+```
+Use docs-architect agent reate comprehensive system design documentation for vLLM integration with LMCache follow my codebase. Include:
+1. Architecture overview with component interactions
+2. KV cache storage and retrieval flow
+3. Integration points between vLLM and LMCache
+4. Configuration options and their impact
+5. Performance considerations
+6. Deployment patterns
+7. Sequence diagrams for key operations
+Output to docs/lmcache-system-design.md
+
+Use architect-reviewer agent to review the system design documentation at @docs/lmcache-system-design.md follow my codebase for:
+- Technical accuracy and completeness
+- Clarity of architectural decisions
+- Proper coverage of integration points
+- Missing edge cases or failure modes
+- Consistency with codebase implementation
+- Recommendations for improvements
+Provide detailed feedback and suggestions.
 ```
 
 **Phase 3: Planning**
-```
 5. /writing-plans create implementation plan with TDD approach
 6. /planning-disaster-recovery define RTO/RPO and backup strategies
+
+Example:
+```
+/writing-plans Create a detailed Implementation Plan into docs/plan/lmcache-integration-planner.md from my System Design Document below. Include:
+
+- Implementation phases with 1 sprint (2 weeks)
+- Task breakdown with priorities and effort estimates
+- Risk assessment and mitigation strategies
+- Testing and deployment strategy
+- Resource and infrastructure requirements
+- Key milestones and deliverables
+
+Ensure the implementation plan is actionable, realistic, and covers all components from the system design.
+
+System Design Document: docs/lmcache-system-design.md
 ```
 
 **Phase 4: Implementation**
-```
+
 7. /vllm configure model serving with tensor parallelism
 8. /high-performance-inference optimize with AWQ quantization
 9. /k8s-manifest-generator create Deployment, Service, ConfigMap
 10. /helm-chart-scaffolding or /helm-chart-vllm package as reusable Helm chart
+
+Example:
+```
+Use aiops-architect agent to implement my plan from document requirements @docs/plan/lmcache-integration-planner.md
 ```
 
 **Phase 5: Review & Quality**
 ```
-11. use code-reviewer to analyze security and performance
-12. use refactoring-specialist if code improvements needed
+11. use code-reviewer agent to analyze security and performance
+12. use refactoring-specialist agent if code improvements needed
 ```
 
 **Phase 6: Benchmarking & Debugging**
