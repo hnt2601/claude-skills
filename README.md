@@ -131,6 +131,8 @@ Domain-specific knowledge bases for AI product development.
 | high-performance-inference | Inference optimization strategies |
 | awq | Activation-aware weight quantization |
 | flash-attention | Efficient attention mechanisms |
+| helm-chart-vllm | Helm chart vLLM deployment |
+| aiperf-benchmark | LLM performance benchmarking |
 
 ### AI/ML Engineering
 
@@ -231,7 +233,7 @@ A comprehensive workflow from ideation to production deployment of an LLM servin
 7. /vllm configure model serving with tensor parallelism
 8. /high-performance-inference optimize with AWQ quantization
 9. /k8s-manifest-generator create Deployment, Service, ConfigMap
-10. /helm-chart-scaffolding package as reusable Helm chart
+10. /helm-chart-scaffolding or /helm-chart-vllm package as reusable Helm chart
 ```
 
 **Phase 5: Review & Quality**
@@ -240,16 +242,17 @@ A comprehensive workflow from ideation to production deployment of an LLM servin
 12. use refactoring-specialist if code improvements needed
 ```
 
-**Phase 6: Deployment & Debugging**
+**Phase 6: Benchmarking & Debugging**
 ```
 13. Deploy to staging cluster with helm install
 14. use devops-troubleshooter if pod issues occur
 15. use debugger for application-level errors
 16. /debug-cuda-crash if GPU-related issues
+17. /aiperf-benchmark to benchmark performance of model
 ```
 
 **Phase 7: Documentation**
 ```
-17. /generating-documentation create deployment runbook and API docs
-18. /commit document changes with conventional commit
+18. /generating-documentation create deployment runbook and API docs
+19. /commit document changes with conventional commit
 ```
