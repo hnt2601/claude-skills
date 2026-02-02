@@ -208,6 +208,7 @@ Slash commands for common development tasks.
 ```
 
 ### End-to-End LLM Deployment with K8s & Helm
+**Usage:** `claude -r "ai-ops-planning" --model opus --resume --allow-dangerously-skip-permissions`
 
 A comprehensive workflow from ideation to production deployment of an LLM serving infrastructure.
 
@@ -291,7 +292,7 @@ Example:
 /writing-plans Create a detailed Implementation Plan into docs/plan/lmcache-integration-planner.md from my System Design Document below. Include:
 
 - Implementation phases with 1 sprint (2 weeks)
-- Task breakdown with priorities and effort estimates
+- Task breakdown with priorities with step by step Develop / Staging / Testing / Production / Monitoring phases and effort estimates
 - Risk assessment and mitigation strategies
 - Testing and deployment strategy
 - Resource and infrastructure requirements
@@ -302,6 +303,11 @@ Ensure the implementation plan is actionable, realistic, and covers all componen
 System Design Document: docs/lmcache-system-design.md
 ```
 
+You should update CLAUDE.md after planining phase
+```
+/init
+```
+
 **Phase 4: Implementation**
 
 7. /vllm configure model serving with tensor parallelism
@@ -310,6 +316,10 @@ System Design Document: docs/lmcache-system-design.md
 10. /helm-chart-scaffolding or /helm-chart-vllm package as reusable Helm chart
 
 Example:
+
+Best Practice:
+ `claude -r "ai-ops-execution" --agent aiops-architect --model sonnet --resume --allow-dangerously-skip-permissions`
+
 ```
 Use aiops-architect agent to implement my plan from document requirements @docs/plan/lmcache-integration-planner.md
 ```
