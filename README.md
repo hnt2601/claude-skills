@@ -208,7 +208,7 @@ Slash commands for common development tasks.
 ```
 
 ### End-to-End LLM Deployment with K8s & Helm
-**Usage:** `claude -r "ai-ops-planning" --model opus --resume --allow-dangerously-skip-permissions`
+**Usage:** `claude -r "session-name" --model opus --resume --allow-dangerously-skip-permissions`
 
 A comprehensive workflow from ideation to production deployment of an LLM serving infrastructure.
 
@@ -299,13 +299,19 @@ Example:
 - Key milestones and deliverables
 
 Ensure the implementation plan is actionable, realistic, and covers all components from the system design.
-
+Ignore step about git command like git add, git commit, git push,... in document.
 System Design Document: docs/lmcache-system-design.md
-```
 
-You should update CLAUDE.md after planining phase
-```
-/init
+/planning-disaster-recovery Ultrathink. You are in Plan Mode. Do not modify files or run commands. Please review @docs/plan/lmcache-integration-planner.md
+Output:
+- Follow the documentation @docs/lmcache-system-design.md and the architecture of the codebase
+- Mitigation options with effort/impact/risk in production environment
+- Focus on feature stability
+- Minimal verification checklist
+- Rollback/containment steps
+
+Then: self-critique for edge cases, redundant steps, and safer ordering.
+Revise the plan document content if needed
 ```
 
 **Phase 4: Implementation**
@@ -318,29 +324,53 @@ You should update CLAUDE.md after planining phase
 Example:
 
 Best Practice:
- `claude -r "ai-ops-execution" --agent aiops-architect --model sonnet --resume --allow-dangerously-skip-permissions`
+ `claude -r "session-name" --agent aiops-architect --model sonnet --resume --allow-dangerously-skip-permissions`
 
 ```
-Use aiops-architect agent to implement my plan from document requirements @docs/plan/lmcache-integration-planner.md
+Direct the aiops-architect agent to execute phases 1, 2, 3, and 4 from @docs/plan/lmcache-integration-planner.md. Staging and production phases will be implemented manually by me.
+/prometheus-configuration Implement the Prometheus Helm chart configuration by following @docs/plan/lmcache-integration-planner.md and using YAML examples from @monitoring/prometheus.
+/grafana-dashboards Implement the Grafana dashboards Helm chart by following @docs/plan/lmcache-integration-planner.md and using YAML examples from @monitoring/grafana.
+/generating-documentation Create a comprehensive @monitoring/README.md for installing and deploying the Helm chart located in @monitoring. Include prerequisites, installation steps, and usage examples.
 ```
 
 **Phase 5: Review & Quality**
+11. Use the code-reviewer agent to analyze code for security vulnerabilities and performance issues.
+12. Use the refactoring-specialist agent whenever code improvements or optimizations are required.
+13. /tech-debt Please compile a summary of all identified technical debt and write the output to docs/tech-debt.md. I will perform a manual documentation review prior to implementing any code updates.
+
 ```
-11. use code-reviewer agent to analyze security and performance
-12. use refactoring-specialist agent if code improvements needed
+Use refactoring-specialist agent to address issues from @docs/tech-debt.md:
+- Template refactoring: Consolidate repeated code patterns across deployment templates
+- Values cleanup: Remove redundant/deprecated fields from model configs
+- DRY improvements: Extract common configs into reusable defaults
+- Code organization: Restructure files and remove temporary/unused configurations
 ```
 
 **Phase 6: Benchmarking & Debugging**
 ```
-13. Deploy to staging cluster with helm install
-14. use devops-troubleshooter if pod issues occur
-15. use debugger for application-level errors
-16. /debug-cuda-crash if GPU-related issues
-17. /aiperf-benchmark to benchmark performance of model
+14. Deploy to staging cluster with helm install
+15. use devops-troubleshooter if pod issues occur
+16. use debugger for application-level errors
+17. /debug-cuda-crash if GPU-related issues
+18. /aiperf-benchmark to benchmark performance of model
 ```
 
 **Phase 7: Documentation**
 ```
-18. /generating-documentation create deployment runbook and API docs
-19. /commit document changes with conventional commit
+19. /generating-documentation create deployment runbook and API docs
+20. /commit document changes with conventional commit
+```
+
+
+**Phase 8: Model Evaluation**
+```
+21. I used the fastapi-llm-serving-pro agent and focused on skill-evaluating-llms-harness as a foundation to implement a codebase for evaluating the accuracy of the Model API I implemented using `vllm serve`. For example:
+https://docs.vllm.ai/projects/recipes/en/latest/Llama/Llama3.3-70B.html#verify-accuracy
+https://docs.vllm.ai/projects/recipes/en/latest/DeepSeek/DeepSeek-V3_2.html#launching-deepseek-v32
+/guiding-users Create README.md to guide user to install and run this code 
+```
+
+You should improve CLAUDE.md after staging or production phase
+```
+Optimize CLAUDE.md so you don't make that mistake again
 ```
