@@ -1,1 +1,11 @@
-https://github.com/modelcontextprotocol/servers
+- [drawio-mcp](https://github.com/jgraph/drawio-mcp)
+  - XML:
+    - Use the draw.io MCP tool open_drawio_xml to create a simple Agentic RAG systems with NVIDIA NeMo Agent Toolkit framework
+    - Create a detailed AWS architecture diagram with VPC, subnets, EC2, and RDS
+  - Mermaid:
+    - Draw a Gantt chart for a 3-month software development project
+    - Make a sequence diagram of a REST API request/response cycle
+- [mcp-grafana](https://github.com/grafana/mcp-grafana)
+- [mcp-server-qdrant](https://github.com/qdrant/mcp-server-qdrant/)
+- [tavily-mcp](https://github.com/tavily-ai/tavily-mcp)
+- [mcp-mermaid](https://github.com/hustcc/mcp-mermaid)
